@@ -1,45 +1,6 @@
 import random
 import math
-import os
 
-class _Getch:
-    """Gets a single character from standard input.  Does not echo to the
-screen."""
-    def __init__(self):
-        try:
-            self.impl = _GetchWindows()
-        except ImportError:
-            self.impl = _GetchUnix()
-
-    def __call__(self): return self.impl()
-
-
-class _GetchUnix:
-    def __init__(self):
-        import tty, sys
-
-    def __call__(self):
-        import sys, tty, termios
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
-
-
-class _GetchWindows:
-    def __init__(self):
-        import msvcrt
-
-    def __call__(self):
-        import msvcrt
-        return msvcrt.getch()
-
-
-getch = _Getch()
 
 class SnakeObjects():
     # snake object consts
@@ -354,7 +315,7 @@ class SnakeGame():
             self.dir_x = 0
             self.dir_y = 1
             self.last_move = SnakeControls.DOWN
-        else :
+        else:
             if self.last_move == SnakeControls.UP:
                 self.dir_x = 0
                 self.dir_y = -1
@@ -379,7 +340,7 @@ class SnakeGame():
         # check on target
         target_type = self.board[target_y][target_x].type
 
-        # if target is wall or body, snake dies,  if food eat
+        # if target is wall or body, snake dies, if food eaten save last body pos for extending length
         eat_food = False
         if target_type == SnakeObjects.WALL or (target_type == SnakeObjects.BODY and len(self.snake) > 4):
             self.alive = False
@@ -388,8 +349,10 @@ class SnakeGame():
             last_pos_x = self.snake[len(self.snake) - 1].pos_x
             last_pos_y = self.snake[len(self.snake) - 1].pos_y
 
+        # refresh all snake's body
         self.refreshSnakeBody(target_x, target_y)
 
+        # if foot eat increase body length and create more food and reset health, else decrease health by 1
         if eat_food:
             self.snake.append(SnakeObjects(SnakeObjects.BODY, last_pos_x, last_pos_y))
             self.board[self.snake[len(self.snake) - 1].pos_y][self.snake[len(self.snake) - 1].pos_x].type = SnakeObjects.BODY
@@ -398,9 +361,11 @@ class SnakeGame():
         else:
             self.health = self.health - 1
 
+        # if runs out of health snake dies
         if self.health <= 0:
             self.alive = False
 
+        # refresh snake sensor and recalculate fitness
         self.refreshSensor()
         self.calculateFitness()
 
@@ -414,35 +379,34 @@ class SnakeGame():
             print()
         print()
         print("Body, Food, Wall")
-        print("LB :",self.sensor[0])
-        print("LM :",self.sensor[1])
-        print("LT :",self.sensor[2])
-        print("MT :",self.sensor[3])
-        print("RT :",self.sensor[4])
-        print("RM :",self.sensor[5])
-        print("RB :",self.sensor[6])
-        print("MB :",self.sensor[7])
-        print("Fitness: ",self.fitness)
-        print("Health: ",self.health)
-        # print(len(self.snake))
+        print("LB :", self.sensor[0])
+        print("LM :", self.sensor[1])
+        print("LT :", self.sensor[2])
+        print("MT :", self.sensor[3])
+        print("RT :", self.sensor[4])
+        print("RM :", self.sensor[5])
+        print("RB :", self.sensor[6])
+        print("MB :", self.sensor[7])
+        print("Fitness: ", self.fitness)
+        print("Health: ", self.health)
 
-snake_instance = SnakeGame(15, 15)
+# snake_instance = SnakeGame(15, 15)
 
-snake_instance.drawConsole()
+# snake_instance.drawConsole()
 
-while snake_instance.alive:
-    inp = str(getch())
-    if  inp.find("a") != -1:
-        inp = SnakeControls.LEFT
-    elif inp.find("s") != -1:
-        inp = SnakeControls.DOWN
-    elif inp.find("d") != -1:
-        inp = SnakeControls.RIGHT
-    elif inp.find("w") != -1:
-        inp = SnakeControls.UP
+# while snake_instance.alive:
+#     inp = str(getch())
+#     if  inp.find("a") != -1:
+#         inp = SnakeControls.LEFT
+#     elif inp.find("s") != -1:
+#         inp = SnakeControls.DOWN
+#     elif inp.find("d") != -1:
+#         inp = SnakeControls.RIGHT
+#     elif inp.find("w") != -1:
+#         inp = SnakeControls.UP
 
-    snake_instance.updateSnake(inp)
-    os.system("cls")
-    snake_instance.drawConsole()
+#     snake_instance.updateSnake(inp)
+#     os.system("cls")
+#     snake_instance.drawConsole()
 
-print(snake_instance.fitness)
+# print(snake_instance.fitness)

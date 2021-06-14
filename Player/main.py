@@ -1,5 +1,5 @@
-import snake
-import renderer
+import Base.snake
+from Player.renderer import renderer
 
-# renderer.Init()
-# renderer.Run()
+renderer.Init()
+renderer.Run()
