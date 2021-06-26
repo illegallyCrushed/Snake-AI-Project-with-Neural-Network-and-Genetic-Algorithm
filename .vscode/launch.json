@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": ["./"],
+            "env": {
+                "PYTHONPATH":"${workspaceFolder}"
+            },
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ],
+}

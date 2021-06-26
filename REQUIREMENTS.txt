@@ -11,3 +11,6 @@ pip install tensorflow
 
 keras
 pip install keras
+
+NVIDIA CUDA DRIVERS AND LIBRARIES
+https://www.tensorflow.org/install/gpu
