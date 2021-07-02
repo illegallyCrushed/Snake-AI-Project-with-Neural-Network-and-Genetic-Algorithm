@@ -1,9 +1,15 @@
-from constants import DEFAULT_VISION, DIED_REWARD, EAT_REWARD, GAME_HEIGHT, GAME_WIDTH, STARVE_REWARD, USE_BINARY, WALKING_REWARD
+import os
+if __name__ == "__main__":
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+import heapq
+import tensorflow
+from constants import DEFAULT_VISION, DIED_REWARD, EAT_REWARD, SCREEN_RESOLUTION_WIDTH, SCREEN_RESOLUTION_HEIGHT, STARVE_REWARD, USE_BINARY, WALKING_REWARD
 import random
 import math
-import os
 import copy
-
+import pygame
+import json
+import agent
 
 class SnakeObjects():
     # snake object consts
@@ -217,6 +223,9 @@ class SnakeGame():
                 single_array.append(data)
 
         return single_array
+    
+    def getCurrentSensor(self):
+        return self.getSensor(self.snake[0].pos_x,self.snake[0].pos_y)
 
     # calculate snake fitness
     def calculateFitness(self):
@@ -363,7 +372,7 @@ class SnakeGame():
             # if target is body, snake dies, if food eaten save last body pos for extending length
             if target_type == SnakeObjects.BODY and not (self.snake[len(self.snake)-1].pos_x == target_x and self.snake[len(self.snake)-1].pos_y == target_y):
                 self.alive = False
-                reward = DIED_REWARD
+                reward = DIED_REWARD * 5
             elif target_type == SnakeObjects.FOOD:
                 eat_food = True
                 last_pos_x = self.snake[len(self.snake) - 1].pos_x
@@ -371,8 +380,8 @@ class SnakeGame():
                 last_dir = self.snake[len(self.snake) - 1].dir
                 reward = EAT_REWARD
 
-        # if target not wall aka dead
-        if not self.testWall(target_x,target_y):
+        # if target not dead
+        if self.alive:
             # refresh all snake's body
             self.refreshSnakeBody(target_x, target_y, self.last_move)
 
@@ -482,6 +491,9 @@ class SnakeGame():
                 board_row.append(base_element)
             self.board.append(board_row)
 
+        # max distance
+        self.max_distance = math.floor(math.hypot(self.size_y, self.size_x))+1
+
         # snake direction
         self.last_move = random.sample([SnakeDirections.UP,SnakeDirections.LEFT,SnakeDirections.RIGHT,SnakeDirections.DOWN],1)[0]
         self.dir_x = 0
@@ -552,6 +564,7 @@ class SnakeGame():
         self.calculateFitness()
 
 
+
 # snake_instance = SnakeGame(GAME_WIDTH,GAME_HEIGHT)
 
 # snake_instance.drawConsole()
@@ -577,3 +590,128 @@ class SnakeGame():
 #         print(body.dir)
 
 # print(snake_instance.fitness)
+
+def loadSnakeAI(file):
+    filehandle = open(file, 'r')
+    data = json.load(filehandle)
+    if "parent_count" in data:
+        print("Population file detected, selecting snake with the highest average fitness")
+        ai_candidates = []
+        heapq.heapify(ai_candidates)
+        for i in range(data["parent_count"]):
+            parent = agent.SnakeAgent()
+            parent.brain.decodeWeight(data["parent_weights"][i])
+            parent.highest_fitness = data["parent_fitnesses"][i]
+            gamenumber = data["generation_number"]
+            heapq.heappush(ai_candidates,parent)
+        filehandle.close()
+        return gamenumber,heapq.nlargest(1, ai_candidates)[0]
+    else:
+        print("Individual file detected, loading snake AI weights")
+        parent = agent.SnakeAgent()
+        parent.brain.decodeWeight(data["parent_weight"])
+        parent.highest_fitness = data["parent_fitness"]
+        gamenumber = data["game_number"]
+        filehandle.close()
+        return gamenumber,parent
+
+if __name__ == "__main__":
+    boardsize = ""
+    os.system('cls')
+    while boardsize == "" and int(boardsize if boardsize != "" else 0) < 10:
+        print("Input board size (X*X): ", end="")
+        boardsize = input()
+    print("Empty for human player, file location for AI: ", end="")
+    fileinp = input()
+
+    isHuman = True
+    snakeBoard = SnakeGame(int(boardsize),int(boardsize))
+
+    if fileinp != "":
+        isHuman = False
+        gamenumber,snakeAI = loadSnakeAI(fileinp)
+        print("Snake AI loaded with average fitness of {}".format(snakeAI.highest_fitness))
+
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_RESOLUTION_WIDTH, SCREEN_RESOLUTION_HEIGHT))
+    pygame.display.set_caption('Snake')
+
+    def drawRect(x,y,type):
+        block = int((SCREEN_RESOLUTION_WIDTH / int(boardsize)))
+        xdraw = block*x
+        ydraw = block*y
+
+        borderres = 4 * 10/int(boardsize)
+
+        xborder = block*x + borderres
+        yborder = block*y + borderres
+        blockborder = block - borderres*2
+
+        rect = pygame.Rect(xdraw, ydraw, block, block)
+        rectborder = pygame.Rect(xborder, yborder, blockborder,blockborder)
+        black = pygame.Color(0,0,0)
+        color = pygame.Color(0,0,0)
+        if type == SnakeObjects.HEAD:
+            color = pygame.Color(0,255,0)
+        elif type == SnakeObjects.BODY:
+            color = pygame.Color(0,0,255)
+        elif type == SnakeObjects.FOOD:
+            color = pygame.Color(255,0,0)
+        elif type == SnakeObjects.EMPTY:
+            color = pygame.Color(0,0,0)
+        pygame.draw.rect(screen, black, rect)
+        pygame.draw.rect(screen, color, rectborder)
+
+    clock = pygame.time.Clock()
+
+    gamerunning = True
+    while gamerunning:
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                gamerunning = False
+
+        for y in range(len(snakeBoard.board)):
+            for x in range(len(snakeBoard.board[y])):
+                tile = snakeBoard.board[y][x].type
+                drawRect(x,y,tile)
+
+        if snakeBoard.alive:
+            inp = SnakeDirections.LAST
+            if isHuman:
+                if pygame.key.get_pressed()[pygame.K_LEFT]:
+                    inp = SnakeDirections.LEFT
+                elif pygame.key.get_pressed()[pygame.K_DOWN]:
+                    inp = SnakeDirections.DOWN
+                elif pygame.key.get_pressed()[pygame.K_RIGHT]:
+                    inp = SnakeDirections.RIGHT
+                elif pygame.key.get_pressed()[pygame.K_UP]:
+                    inp = SnakeDirections.UP
+                else:
+                     inp = SnakeDirections.LAST
+            else :
+                inp = snakeAI.play(snakeBoard.getCurrentSensor())
+            snakeBoard.updateSnake(inp)
+
+            if isHuman:
+                pygame.display.set_caption('Snake - Score: {}'.format(snakeBoard.calculateFitness()))
+            else:
+                pygame.display.set_caption('SnakeAI - Score: {} - AI Avg Fitness: {} - AI Gen Number: {}'.format(snakeBoard.calculateFitness(), snakeAI.highest_fitness, gamenumber))
+
+        else:
+            if isHuman:
+                pygame.display.set_caption('Snake - Score: {} - Esc = Exit | Enter = Reset'.format(snakeBoard.calculateFitness()))
+            else:
+                pygame.display.set_caption('SnakeAI - Score: {} - AI Avg Fitness: {} - AI Gen Number: {} - Esc = Exit | Enter = Reset'.format(snakeBoard.calculateFitness(), snakeAI.highest_fitness, gamenumber))
+
+            if pygame.key.get_pressed()[pygame.K_RETURN]:
+                snakeBoard.resetSnake()
+            elif pygame.key.get_pressed()[pygame.K_ESCAPE]:
+                gamerunning = False
+
+        pygame.display.flip()
+        clock.tick(20)
+
+        
+
+        

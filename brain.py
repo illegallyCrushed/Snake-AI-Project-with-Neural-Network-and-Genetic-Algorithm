@@ -6,6 +6,7 @@ class SnakeBrain:
     # neural class from snake's brain using reinforced learning (QNet)
 
     def __init__(self,learning_rate):
+        # create neural model
         self.neural = keras.models.Sequential()
         for i in range(len(HIDDEN_LAYER)):
             if i == 0:
@@ -13,6 +14,7 @@ class SnakeBrain:
             else:
                 self.neural.add(keras.layers.Dense(HIDDEN_LAYER[i], activation='relu', use_bias=USE_BIAS))
         self.neural.add(keras.layers.Dense(OUTPUT_LAYER, activation='softmax', use_bias=USE_BIAS))
+        # setup optimizer and loss
         self.neural.compile(optimizer=keras.optimizers.Adam(learning_rate=learning_rate), loss=keras.losses.MSE)
 
     # encodes weight to 1D array

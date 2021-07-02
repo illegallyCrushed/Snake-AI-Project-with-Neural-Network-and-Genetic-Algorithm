@@ -4,10 +4,9 @@ from constants import *
 import threading
 import json
 import heapq
+import datetime
 
 # roulette wheel function, returns 1 selected individual + popped array
-
-
 def rouletteWheel(population):
     cumulative = sum(population)
     increment = 0
@@ -18,9 +17,9 @@ def rouletteWheel(population):
             selected = population.pop(i)
             return selected, population
 
-# crossover function, returns offspring weights
+# crossover function, returns offspring weights 50% : 50%
 def crossover(parent_a_weight, parent_b_weight):
-    crossovers = random.randint(0, MAX_CROSSOVERS)
+    crossovers = len(parent_a_weight)//2
     swaps = random.sample(range(len(parent_a_weight)), crossovers)
     for i in swaps:
         parent_a_weight[i], parent_b_weight[i] = parent_b_weight[i], parent_a_weight[i]
@@ -28,15 +27,19 @@ def crossover(parent_a_weight, parent_b_weight):
         return parent_a_weight
     return parent_b_weight
 
+# mutations
 def mutation(offspring_weight):
-    mutations = random.randint(0, MAX_MUTATION)
+    mutations = random.randint(0, len(offspring_weight))
     mutates = random.sample(range(len(offspring_weight)), mutations)
     max_weight = max(offspring_weight)
     min_weight = min(offspring_weight)
     for i in mutates:
         offspring_weight[i] = min_weight + (max_weight-min_weight) * random.random()
+        offspring_weight[i] = max(offspring_weight[i] , -1)
+        offspring_weight[i] = min(offspring_weight[i] , 1)
     return offspring_weight
 
+# generates 1 offsping from parents
 def generateOffspring(new_population, parent_a_weight, parent_b_weight):
     offspring_weight = crossover(parent_a_weight, parent_b_weight)
     if random.random() < MUTATION_CHANCE:
@@ -45,12 +48,7 @@ def generateOffspring(new_population, parent_a_weight, parent_b_weight):
     offspring.brain.decodeWeight(offspring_weight)
     new_population.append(offspring)
 
-def cleanseParent(parent):
-    new_parent = agent.SnakeAgent()
-    new_parent.brain.decodeWeight(parent.brain.encodeWeight())
-    new_parent.highest_fitness = parent.highest_fitness
-    return new_parent
-
+# singlethreaded function from genetic algorithm
 def singleThreadFillPopulation(new_population, parent_candidates, gen_num, max_ind):
     # get 2 highest parent
     parent_highest = heapq.nlargest(2, parent_candidates)
@@ -64,27 +62,27 @@ def singleThreadFillPopulation(new_population, parent_candidates, gen_num, max_i
         parent_b, parent_candidates = rouletteWheel(parent_candidates)
         parent_a_weight = parent_a.brain.encodeWeight()
         parent_b_weight = parent_b.brain.encodeWeight()
-        # push both parents into new population
-        new_population.append(cleanseParent(parent_a))
-        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
-        i+=1
-        new_population.append(cleanseParent(parent_b))
-        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
-        i+=1
-        # generate 2 offsprings
+        # generate 4 offsprings
         generateOffspring(new_population, parent_a_weight, parent_b_weight)
         print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
         i+=1
         generateOffspring(new_population, parent_a_weight, parent_b_weight)
         print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
         i+=1
-
+        generateOffspring(new_population, parent_a_weight, parent_b_weight)
+        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
+        i+=1
+        generateOffspring(new_population, parent_a_weight, parent_b_weight)
+        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (i+1), max_ind))
+        i+=1
 
     while len(new_population) != max_ind:
         generateOffspring(new_population, parent_w_a, parent_w_b)
         print("Generation {} Generated Over Offspring: {}/{}".format(gen_num, (i+1), max_ind))
         i+=1
 
+
+# multithreaded function from genetic algorithm
 def multiThreadFillPopulation(new_population, parent_candidates, gen_num, max_ind):
     # get 2 highest parent
     parent_highest = heapq.nlargest(2, parent_candidates)
@@ -99,21 +97,19 @@ def multiThreadFillPopulation(new_population, parent_candidates, gen_num, max_in
         parent_b, parent_candidates = rouletteWheel(parent_candidates)
         parent_a_weight = parent_a.brain.encodeWeight()
         parent_b_weight = parent_b.brain.encodeWeight()
-        # push both parents into new population
-        new_population.append(cleanseParent(parent_a))
-        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (pcount+1), max_ind))
-        pcount += 1
-        new_population.append(cleanseParent(parent_b))
-        print("Generation {} Generated Offspring: {}/{}".format(gen_num, (pcount+1), max_ind))
-        pcount += 1
-        # generate 2 offsprings
+        # generate 4 offsprings
         new_thread = threading.Thread(target=generateOffspring, args=(new_population, parent_a_weight, parent_b_weight,))
         new_thread.start()
         threads.append(new_thread)
         new_thread = threading.Thread(target=generateOffspring, args=(new_population, parent_a_weight, parent_b_weight,))
         new_thread.start()
         threads.append(new_thread)
-
+        new_thread = threading.Thread(target=generateOffspring, args=(new_population, parent_a_weight, parent_b_weight,))
+        new_thread.start()
+        threads.append(new_thread)
+        new_thread = threading.Thread(target=generateOffspring, args=(new_population, parent_a_weight, parent_b_weight,))
+        new_thread.start()
+        threads.append(new_thread)
 
     for i in range(len(threads)):
         threads[i].join()
@@ -124,6 +120,7 @@ def multiThreadFillPopulation(new_population, parent_candidates, gen_num, max_in
         generateOffspring(new_population, parent_w_a, parent_w_b)
         print("Generation {} Generated Over Offspring: {}/{}".format(gen_num, (i+1+pcount), max_ind))
 
+# save parents to file
 def saveParents(parent_candidates, gen_num):
     filehandle = open("./train_data/gendata_{}.json".format(gen_num), 'w')
     parent_weights = []
@@ -132,6 +129,7 @@ def saveParents(parent_candidates, gen_num):
         parent_weights.append(parent.brain.encodeWeight())
         parent_fitnesses.append(parent.highest_fitness)
     jsondata = {
+        "datetime": datetime.datetime.now().strftime("%c"),
         "generation_number": gen_num,
         "parent_count": len(parent_candidates),
         "population_size": INDIVIDUAL_IN_POPULATION,
@@ -141,6 +139,7 @@ def saveParents(parent_candidates, gen_num):
     filehandle.write(json.dumps(jsondata, indent=2))
     filehandle.close()
 
+# load parents from file
 def loadParents(file):
     new_population = []
     parent_candidates = []
@@ -157,6 +156,7 @@ def loadParents(file):
     multiThreadFillPopulation(new_population, parent_candidates, gen_num, data["population_size"])
     return new_population, gen_num
 
+
 def geneticAlgorithm(population, gen_num):
     # select parent candidates
     parent_candidates = []
@@ -164,15 +164,15 @@ def geneticAlgorithm(population, gen_num):
     for _ in range(len(population)//2):
         selected_parent, population = rouletteWheel(population)
         parent_candidates.append(selected_parent)
-    
+    # save parents to a file
     saveParents(parent_candidates,gen_num)
     # creates new population
     new_population = []
 
-    # single threading
+    # single threading fill population
     # singleThreadFillPopulation(new_population, parent_candidates, gen_num, pop_count)
 
-    # multi threading
+    # multi threading fill population
     multiThreadFillPopulation(new_population, parent_candidates, gen_num, pop_count)
 
     return new_population
